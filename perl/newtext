@@ -1,0 +1,88 @@
+
+#!/usr/bin/env perl
+#
+# Create new text based on the data in newtext.json and newtext.xml.
+#
+# $Id: $
+#
+
+use strict;
+use JSON::XS;
+use Try::Tiny;
+use Data::Dumper;
+use POSIX 'strftime';
+
+my $date = strftime '%B %Y', localtime;
+
+my $destPath = '/doe/corpus/xml-corpus/';
+
+my $src = $ARGV[0];
+print "data source: ", $src, "\n";
+
+my $templ = $ARGV[1];
+print "text template: ", $templ, "\n";
+
+my $newdocs = do {
+  local $/ = undef;
+  open my $fh, "<", $src || die "Can not open $src: $!";
+  <$fh>
+};
+
+#print $newdocs, "\n";
+
+my $docs;
+try {
+  $docs = JSON::XS::decode_json($newdocs)
+}
+catch {
+  warn "Caught JSON::XS decode error: $_";
+};
+
+#print Dumper $docs;
+
+foreach my $doc (@$docs) {
+  #print Dumper $doc;
+  print "Processing ", $doc->{'fid'}, "\n";
+  my $des = sprintf("%s%s.xml", $destPath, $doc->{'fid'});
+  if ( -f $des ) {
+    print STDERR "Skip $doc->{'fid'}: $des alreay exists.\n";
+  } else {
+    my $templText = do {
+      local $/ = undef;
+      open my $fh, "<", $templ || die "Can not open $templ: $!";
+      <$fh>
+    };
+    $templText =~ s/T99999/$doc->{'fid'}/g;
+    $templText =~ s/>CN</>$doc->{'cn'}</;
+    $templText =~ s/>ST</>$doc->{'st'}</;
+    $templText =~ s/>SS</>$doc->{'st'}</;
+    $templText =~ s/>SS</>$doc->{'st'}</;
+    $templText =~ s/MONTH YYYY/$date/;
+    print "Writing to $des\n";
+    #print $templText;
+    open my $fh, "> $des" || die "Can not write to $des: $!";
+    print $fh $templText;
+    close $fh;
+    # fix permissions
+    `ci -i -u -t- $des`;
+    `chgrp staff $des`;
+    $des =~ s/\/T/\/RCS\/T/;
+    $des .= ',v' ;
+    `chgrp staff $des`;
+  }
+}
+exit 0
+
+__END__
+Usage:
+  perl newtext newtext.json newtext.xml
+
+* newtext.xml - template
+* newtext.json - text to be created, e.g.:
+  [
+    {
+      "fid": "T09981",
+      "st": "Ch 136 (Crick 1A and 1B)",
+      "cn": "B15.1.4.1"
+    }
+  ]

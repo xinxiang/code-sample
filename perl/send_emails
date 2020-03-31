@@ -1,0 +1,23 @@
+use strict;
+
+my $tolist = $ARGV[0];
+my $msg = $ARGV[1];
+print "To list: ", $tolist, "\n";
+print "Message: ", $msg, "\n";
+
+my $subject = qq{'COVID 19: Message to DOE Users'};
+my $sender = qq{'DOE Editors<noreply\@doe.utoronto.ca>'};
+
+open (TOS, "<$tolist") || die "Can not open the send to list $tolist.\n";
+while (<TOS>){
+    chomp;
+    next if ( $_ !~ /@/);
+    my $to = $_;
+    $to =~ s/\|//g;
+    $to =~ s/^* //;
+    $to =~ s/ *$//;
+
+    `mail -s$subject -r$sender $to < $msg`;
+    sleep(5);
+}
+close TOS;
